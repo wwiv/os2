@@ -1,0 +1,8 @@
+Customizations for BC/OS2
+
+Keybindings:
+
+MODERN.TEM - More modern CUA style keybinding closer to what the
+basics are on VS Code or a modern editor (control-C/V/X/etc)
+
+To compile this, use TEMC from BCOS2/bin
