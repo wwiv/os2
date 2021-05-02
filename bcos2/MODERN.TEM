@@ -276,15 +276,16 @@ ctrl-A : MacLeftOfLine;
 ctrl-C : ClipCopy;
 ctrl-E : MacRightOfLine;
 ctrl-F : MacGetFindString;
-ctrl-G : MacRepeatSearch;
+ctrl-G : SearchMenu;
 ctrl-H : MacReplace;
 ctrl-I : MacISearch;
 ctrl-N : MacBreakLine;
+ctrl-O : OpenFile;
 ctrl-P : LiteralChar;
 ctrl-S : SaveFile;
 ctrl-T : DeleteWord;
 ctrl-V : ClipPaste;
-ctrl-W : MacScrollDown;
+ctrl-W : CloseWindow;
 ctrl-X : ClipCut;
 ctrl-Y : MacRedo;
 shift-ctrl-Z : MacUndo;
@@ -439,17 +440,12 @@ ctrl-Q+9 : MacGoto9;
 ctrl-Q+[ : MacMatchPairForward;
 ctrl-Q+] : MacMatchPairBackward;
 
+ctrl-Q+^M : ToggleMarginMarker;
+
 /* ---- Control O sequences ------------------ */
 
+/*
 ctrl-O+^C : SyntaxHighlight(1);
-ctrl-O+^F : ToggleOptimalFillMode;
-ctrl-O+^I : ToggleAutoIndent;
-ctrl-O+^M : ToggleMarginMarker;
 ctrl-O+^N : SyntaxHighlight(0);
-ctrl-O+^O : MacOpenLine;
-
 ctrl-O+^P : SyntaxHighlight(2);
-ctrl-O+^R : ToggleCursorThroughTabMode;
-ctrl-O+^T : ToggleTabbingMode;
-ctrl-O+^U : ToggleAutoOutdent;
-
+*/
