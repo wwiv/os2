@@ -1,0 +1,40 @@
+
+(if (eq window-system 'pm)
+    (progn
+      (pm-edit-menu)                                  ; [8]
+      (pm-files-menu)                                 ; [9]
+      (pm-session-bond t)                             ; [11]
+      (set-face-background 'modeline "cyan")
+      (set-face-foreground 'modeline "black")
+      (make-face 'info-node)                          ; [13]
+      (copy-face 'bold 'info-node)))
+
+(setq default-frame-alist                             ; [3]
+      (append '((altgr-modifier . meta)
+		(alt-modifier . meta)   ;;; Alt generates M-
+		(width . 121) (height . 43) 
+		(top . 80) (left . 80)
+                (shortcuts . (alt-f4))
+		(font . "8.Source Code Pro")
+                (menu-font . "8.WarpSans Bold"))
+              default-frame-alist))
+
+(setq case-fold-file-names 'preserve)
+(setq-default transient-mark-mode t)
+(setq inhibit-startup-message t)
+
+;;; make emacs blink instead of beep
+(setq visible-bell t)
+
+;; colorize
+(global-font-lock-mode 1)
+
+
+
+
+
+
+
+
+
+
