@@ -1,0 +1,4 @@
+TODO
+
+* emxrt-devel and libc-devel conflict.  Should libc-devel replace emxrt-devel?
+* should gcc-wlink depend on libc-devel since we need as.exe (or maybe gcc should)??
