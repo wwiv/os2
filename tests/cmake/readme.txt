@@ -4,7 +4,7 @@ To reproduce:
 
 Check out the repro
 make sure cmake is installed
-yum -y cmake
+yum -y install cmake
 
 
 Here's the commands to run:
@@ -12,6 +12,9 @@ Here's the commands to run:
 mkdir _b
 cd _b
 ..\cc11.cmd
+
+Note that this works if instead of cc11.cmd, just run "cmake .." (which uses the existing
+gcc 9.2 compiler)
 
 Error:
 ====================================================================
