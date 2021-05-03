@@ -1,0 +1,34 @@
+git clone --recurse https://github.com/wwiv/wwiv.git
+edit b.cmd to make sure the path is right.
+run gcc11env.cmd to set the gcc-1 environment
+run b.cmd.
+
+
+Note that -std=c++17 works.  getting rid of -DNDEBUG works too (even with std=gnu++17).
+Any change to the -D lines will let the compile succeed, all these are needed.  
+Deleting some more lines in the source seems to let the compile to succeed too.
+
+All are needed. Removing any one causes it to work: 
+-DFMT_HEADER_ONLY=1 -DPDC_WIDE -O3 -DNDEBUG -std=gnu++17
+
+Here's the failure:
+===================
+
+{1}[c:\git\wwiv\wwivconfig] 
+g++ -DFMT_HEADER_ONLY=1 -DPDC_WIDE -O3 -DNDEBUG -std=gnu++17  -I .. -I ..\deps\fmt\include -I ..\deps\pdcurses -c -s newinit.cpp
+Creating 0166_01.TRP
+
+Killed by SIGSEGV
+pid=0x0166 ppid=0x0165 tid=0x0001 slot=0x0078 pri=0x0200 mc=0x0001 ps=0x0010
+C:\USR\LOCAL11\LIBEXEC\GCC\I686-PC-OS2-EMX\11.1.0\CC1PLUS.EXE
+CC1PLUS 0:005033aa
+cs:eip=005b:005133aa      ss:esp=0053:0235f3e0      ebp=0235f438
+ ds=0053      es=0053      fs=150b      gs=0000     efl=00010202
+eax=2614da80 ebx=2614da80 ecx=21c98020 edx=00000001 edi=00000000 esi=00000000
+Process dumping was disabled, use DUMPPROC / PROCDUMP to enable it.
+g++.exe: internal compiler error: Segmentation fault signal terminated program c
+c1plus
+Please submit a full bug report,
+with preprocessed source if appropriate.
+See <https://gcc.gnu.org/bugs/> for instructions.
+
