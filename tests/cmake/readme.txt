@@ -2,19 +2,33 @@ OS/2 GCC 11.1 CMake error.
 
 To reproduce:
 
-Check out the repro
-make sure cmake is installed
-yum -y install cmake
+1) Check out the repro or copy the following files:
+
+* CMakeLists.cpp
+* smoke.cpp
+* cc11.cmd
 
 
-Here's the commands to run:
+2) make sure cmake is installed 
+   (you can do this with: "yum -y install cmake")
 
-mkdir _b
-cd _b
-..\cc11.cmd
+3) Run the following commands:
 
-Note that this works if instead of cc11.cmd, just run "cmake .." (which uses the existing
+   mkdir _b
+   cd _b
+   ..\cc11.cmd
+
+
+This will build a Makefile from cmake's CMakeLists.txt source.
+
+Note that this works if instead of cc11.cmd, just run "cmake .." 
+(which uses the existing
 gcc 9.2 compiler)
+
+
+
+
+
 
 Error:
 ====================================================================
