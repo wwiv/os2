@@ -1,0 +1,1 @@
+ash ./configure --prefix=/usr/local --enable-shared --build=i686-pc-os2-emx --disable-libstdcxx-pch --disable-multilib
