@@ -2,24 +2,28 @@ PROJ		= DOSPIPE
 MSVC_HOME	= C:\MSVC
 INCLUDE 	= $(MSVC_HOME)\INCLUDE
 LIB		= $(MSVC_HOME)\LIB
-CPPFLAGS	= /nologo -I $(INCLUDE) -L $(LIB) /W4
+CPPFLAGS	= /nologo -I $(INCLUDE) -L $(LIB) /W4 /G3
 LDFLAGS		= 
+BINDIR		= bin\
 
-all:		$(PROJ).EXE
+all:		$(BINDIR)\$(PROJ).EXE
 
 clean:
-	-DEL $(PROJ).EXE
-	-DEL $(PROJ).obj
+	-@DEL/N $(BINDIR)\*.*
 
-OBJS		= DOSPIPE.OBJ
+.cpp{$(BINDIR)}.obj:
+    $(CC) $(CPPFLAGS) /Fo$@ /C $<
+
+OBJS		= $(BINDIR)\DOSPIPE.OBJ
 	
-$(PROJ).EXE::   $(PROJ).OBJ $(OBJS)
+$(BINDIR)\$(PROJ).EXE::   $(OBJS)
+	-@MKDIR $(BINDIR)
 	LINK /NOLOGO $(LDFLAGS) @<<$(PROJ).CRF
 $(OBJS: =+^
 )
-$(PROJ).EXE
+$(BINDIR)\$(PROJ).EXE
 $(PROJ).MAP
 
 
-<<KEEP
+<<
 
