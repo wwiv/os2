@@ -1,5 +1,5 @@
-#define INCL_WHATEVER
 #define INCL_DOSDEVIOCTL
+#define INCL_DOSERRORS
 #define INCL_DOSPROCESS
 #include <os2.h>
 
@@ -14,6 +14,24 @@
 
 static constexpr int PIPE_BUFFER_SIZE = 4000;
 
+static int saved_key = -1;
+
+bool kbhit() {
+  if (saved_key == -1) {
+    saved_key = _read_kbd(0, 0, 0);
+  }
+  return saved_key != -1;
+}
+
+int getch() {
+  if (saved_key != -1) {
+    const auto key = saved_key;
+    saved_key = -1;
+    return key;
+  }
+  return _read_kbd(0, 1, 0);
+}
+
 static void log(const char* msg, ...) {
 #ifdef ENABLE_LOG
   va_list argptr;
@@ -26,7 +44,7 @@ static void log(const char* msg, ...) {
 }
 
 static void os_yield() {
-  DosSleep(250);
+  DosSleep(100);
 }
 
 static HFILE create_pipe(const char *name) {
@@ -42,13 +60,13 @@ static HFILE create_pipe(const char *name) {
 			   PIPE_BUFFER_SIZE,
 			   0); // 0 == No Wait.
   log("Dos Create Pipe returns : %d",rc);
+  log("Waiting for pipe to connect");
   do {
     rc = DosConnectNPipe(hPipe);
     if (rc != 0) {
-      log("Waiting for pipe to connect");
       os_yield();
     }
-  } while (rc != 0);
+  } while (rc != NO_ERROR);
   log("Pipe connected", rc);
   DosSleep(200);
   return hPipe;
@@ -63,10 +81,42 @@ int main(int argc, char** argv) {
   unsigned long num_written;
   log("About to write");
   int rc = DosWrite(h, "Hello\n", 6, &num_written);
-  if (rc < 0) {
+  if (rc != NO_ERROR) {
+    os_yield();
     log("Error Writing to the pipe");
   }
   log("Wrote [%ld] to pipe", num_written);
+
+  do {
+    if (kbhit()) {
+      char ch = (char) getch();
+      unsigned long num_written;
+      int rc = DosWrite(h, &ch, 1, &num_written);
+      if (rc != NO_ERROR) {
+	os_yield();
+	log("Error Writing to the pipe");
+      } else if (ch == 27) {
+	// ESCAPE to exit
+	log("Exiting signaled");
+	break;
+      }
+      fprintf(stdout, "[%d]%c", ch, ch); fflush(stdout);
+    }
+    char ch;
+    ULONG num_read;
+    int rc = DosRead(h, &ch, 1, &num_read);
+    if (rc == NO_ERROR) {
+      if (num_read == 0) {
+	// If there was no data, rc should be ERROR_NO_DATA (232), so success
+	// with 0 read means the pipe is closed.
+	fprintf(stderr, "Remote closed pipe.");
+	break;
+      }
+      fprintf(stdout, "Read: [%c][%d] : rc=%d\r\n", ch, ch, num_read);
+      fflush(stdout);
+    }
+    os_yield();
+  } while (true);
   close_pipe(h);
 
   return 0;
