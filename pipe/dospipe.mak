@@ -12,9 +12,9 @@ clean:
 	-@DEL/N $(BINDIR)\*.*
 
 .cpp{$(BINDIR)}.obj:
-    $(CC) $(CPPFLAGS) /Fo$@ /C $<
+    $(CC) $(CPPFLAGS) /Fo$@ /c $<
 
-OBJS		= $(BINDIR)\DOSPIPE.OBJ
+OBJS		= $(BINDIR)\DOSPIPE.OBJ $(BINDIR)\PIPE.OBJ
 	
 $(BINDIR)\$(PROJ).EXE::   $(OBJS)
 	-@MKDIR $(BINDIR)
