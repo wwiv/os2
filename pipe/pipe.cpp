@@ -108,9 +108,12 @@ int DosPeekNmPipe(int handle) {
   r.x.si = _FP_OFF(buffer);
   _intdosx(&r, &or, &s);
   if (or.x.ax == 0 || or.x.cflag == 0) {
-    if (or.x.ax == 1) {
+    if (or.x.ax == 1 || or.x.ax == 4) {
       // disconnected
       return -1;
+    }
+    if (or.x.ax != 0x03) {
+      log("WARNING: DosPeekNmPipe: CF:%d/AX:%d/CX:%d", or.x.cflag, or.x.ax, or.x.cx);
     }
     return or.x.cx;
   }

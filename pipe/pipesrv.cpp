@@ -16,6 +16,14 @@ static constexpr int PIPE_BUFFER_SIZE = 4000;
 
 static int saved_key = -1;
 
+static void outch(int ch) {
+  fprintf(stdout, "%c", ch);
+  if (ch == '\r') {
+    fprintf(stdout, "\n");
+  }
+  fflush(stdout);
+}
+
 bool kbhit() {
   if (saved_key == -1) {
     saved_key = _read_kbd(0, 0, 0);
@@ -100,7 +108,7 @@ int main(int argc, char** argv) {
 	log("Exiting signaled");
 	break;
       }
-      fprintf(stdout, "[%d]%c", ch, ch); fflush(stdout);
+      outch(ch);
     }
     char ch;
     ULONG num_read;
@@ -112,7 +120,7 @@ int main(int argc, char** argv) {
 	fprintf(stderr, "Remote closed pipe.");
 	break;
       }
-      fprintf(stdout, "Read: [%c][%d] : rc=%d\r\n", ch, ch, num_read);
+      outch(ch);
       fflush(stdout);
     }
     os_yield();

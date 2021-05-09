@@ -12,6 +12,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+static void outch(int ch) {
+  fprintf(stdout, "%c", ch);
+  if (ch == '\r') {
+    fprintf(stdout, "\n");
+  }
+  fflush(stdout);
+}
 
 int main(int, char**) {
   int f = _open("\\PIPE\\FOO", _O_RDWR | _O_BINARY);
@@ -36,6 +43,7 @@ int main(int, char**) {
 	break;
       }
       _write(f, &ch, 1);
+      outch(ch);
     }
     if (!num_waiting) {
       os_yield();
@@ -51,11 +59,7 @@ int main(int, char**) {
     } if (read == 0) {
       log("-");
     } else {
-      fprintf(stdout, "[%d]%c", buf, buf);
-      if (buf == '\r') {
-	fprintf(stdout, "\n");
-      }
-      fflush(stdout);
+      outch(buf);
     }
   }
 
