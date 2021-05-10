@@ -1,5 +1,5 @@
 #include "pipe.h"
-
+#include "util.h"
 #include <conio.h>
 #include <ctype.h>
 #include <dos.h>
@@ -12,19 +12,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-static void outch(int ch) {
-  fprintf(stdout, "%c", ch);
-  if (ch == '\r') {
-    fprintf(stdout, "\n");
-  }
-  fflush(stdout);
-}
-
 int main(int, char**) {
-  int f = _open("\\PIPE\\FOO", _O_RDWR | _O_BINARY);
-  if (f < 0) {
+  log("PIPECLNT.EXE - Welcome");
+  Pipe pipe("\\PIPE\\FOO");
+  if (!pipe.is_open()) {
     log("Unable to open pipe");
     return 1;
+    os_yield();
   } else {
     log("Opened Pipe");
   }
@@ -32,7 +26,7 @@ int main(int, char**) {
   int i = 0;
   for (;;) {
     char buf;
-    int num_waiting = DosPeekNmPipe(f);
+    int num_waiting = pipe.peek();
     if (num_waiting < 0) {
       break;
     }
@@ -42,7 +36,7 @@ int main(int, char**) {
 	log("Exit signaled.");
 	break;
       }
-      _write(f, &ch, 1);
+      pipe.write(ch);
       outch(ch);
     }
     if (!num_waiting) {
@@ -53,10 +47,10 @@ int main(int, char**) {
       }
       continue;
     }
-    int read = _read(f, &buf, 1);
-    if (read < 1) {
+    buf = pipe.read();
+    if (buf < 1) {
       break;
-    } if (read == 0) {
+    } if (buf == 0) {
       log("-");
     } else {
       outch(buf);
@@ -64,6 +58,6 @@ int main(int, char**) {
   }
 
   log("Closing Pipe!\n");
-  close(f);
+  pipe.close();
   return 0;
 }

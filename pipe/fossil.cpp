@@ -1,12 +1,14 @@
 #include "fossil.h"
 
 #include "pipe.h"
+#include "util.h"
 #include <conio.h>
 #include <ctype.h>
 #include <dos.h>
 #include <fcntl.h>
 #include <io.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,7 +40,11 @@ unsigned status() {
   return r;
 }
 
+static int num_calls = 0;
+
+#pragma check_stack-
 #pragma warning(disable : 4100)
+
 void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
 	  unsigned _di, unsigned _si,
 	  unsigned _bp, unsigned _sp,
@@ -46,9 +52,11 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
 	  unsigned _cx, unsigned _ax,
 	  unsigned _ip, unsigned _cs,
 	  unsigned _flags ) { 
-
+  num_calls++;
+  
+  //log("Interrupt");
   unsigned char func = HIBYTE(_ax);
-  log("function: ", func);
+  //log("function: ", func);
   switch (func) {
   case 0x0: {
     // Set baud rate.  Nothing to set since we don't care about BPS
@@ -69,13 +77,44 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
     // TODO should we mask it?
     _ax = status();
   } break;
+  case 0x04: {
+    // Request status. 
+    // TODO should we mask it?
+    _ax = 0x1954;
+    _bx = 0x100f;
+  } break;
   }
+}
+
+void __interrupt __far int14_sig() { 
+  char pad[10] = {0};
 }
 
 void enable_fossil() {
   old_int14 = _dos_getvect(0x14);
-  _dos_setvect(0x14, (void (__interrupt __far*)()) int14_handler);
+
+  unsigned char __far * p = (unsigned char __far*) ((void __far*) int14_sig);
+  void __far * sig_addr = int14_sig;
+  void __far * handler_addr = int14_handler;
+  int diff = FP_OFF(handler_addr) - FP_OFF(sig_addr) - 3;
+
+  *p = 0xE9;
+  *(p+1) = (diff & 0xff);
+  *(p+2) = (((diff & 0xff00) >> 8) & 0xff);
+  *(p+3) = 0x90;
+  *(p+4) = 0x90;
+  *(p+5) = 0x90;
+  *(p+6) = 0x54;
+  *(p+7) = 0x19;
+  *(p+8) = 0x0F;
+
+  log("sig_addr=%p:%p, handler_addr=%p:%p diff=%d/%x", FP_SEG(sig_addr), FP_OFF(sig_addr), 
+      FP_SEG(handler_addr), FP_OFF(handler_addr), diff, diff);
+  int __far *ip = (int __far*)(p+1);
+  log("p:%d/%x", *ip, *ip);
+  _dos_setvect(0x14, (void (__interrupt __far *)()) int14_sig);
   fossil_enabled = 1;
+  log("FOSSIL Enabled");
 }
 
 void disable_fossil() {
@@ -85,4 +124,5 @@ void disable_fossil() {
   }
 
   _dos_setvect(0x14, old_int14);
+  log("FOSSIL Disabled: [%d calls]",num_calls);
 }

@@ -1,5 +1,6 @@
 #include "pipe.h"
 
+#include "util.h"
 #include <conio.h>
 #include <ctype.h>
 #include <dos.h>
@@ -13,24 +14,6 @@
 #include <sys/types.h>
 
 
-void log(const char* msg, ...) {
-#ifdef ENABLE_LOG
-  va_list argptr;
-  va_start(argptr, msg);
-  vfprintf(stderr, msg, argptr);
-  va_end(argptr);
-  fprintf(stderr, "\r\n");
-  fflush(stderr);
-#endif
-}
-
-void os_yield() {
-  // log("os_yield");
-  union _REGS r;
-  r.x.ax = 0x1680;
-  _int86(0x2f, &r, &r);
-}
-
 // See http://www.delorie.com/djgpp/doc/rbinter/ix/21/5F.html
 /*
 INT 21 - Named Pipes - LOCAL DosQNmPHandState
@@ -38,7 +21,7 @@ INT 21 - Named Pipes - LOCAL DosQNmPHandState
 	AX = 5F33h
 	BX = handle
 Return: CF clear if successful
-	    AH = pipe mode bit mask (see #01702)
+a	    AH = pipe mode bit mask (see #01702)
 	    AL = maximum number of instances
 	CF set on error
 	    AX = error code
@@ -120,6 +103,44 @@ int DosPeekNmPipe(int handle) {
   log("ERROR: DosPeekNmPipe: CF:%d/AX:%d/CX:%d", or.x.cflag, or.x.ax, or.x.cx);
   return 0;
 }
+
+Pipe::Pipe(const char* fn) {
+  handle_ = _open(fn, _O_RDWR | _O_BINARY);
+}
+
+void Pipe::close() {
+  if (handle_ == -1) {
+    return;
+  }
+  ::close(handle_);
+  handle_ = -1;
+}
+
+Pipe::~Pipe() {
+  close();
+}
+
+int Pipe::is_open() { 
+  return handle_ != -1;
+}
+
+int Pipe::read() {
+  int ch = 0;
+  int ret = _read(handle_, &ch, 1);
+  if (ret < 0) {
+    return -1;
+  }
+  return ch;
+}
+
+int Pipe::write(int ch) {
+  return _write(handle_, &ch, 1);
+}
+
+int Pipe::peek() {
+  return DosPeekNmPipe(handle_);
+}
+
 
 
 
