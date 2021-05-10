@@ -96,21 +96,24 @@ void enable_fossil() {
   unsigned char __far * p = (unsigned char __far*) ((void __far*) int14_sig);
   void __far * sig_addr = int14_sig;
   void __far * handler_addr = int14_handler;
+  // We offset by 3 since JMP is one, and then two for the address for a near JMP
   int diff = FP_OFF(handler_addr) - FP_OFF(sig_addr) - 3;
 
   *p = 0xE9;
-  *(p+1) = (diff & 0xff);
-  *(p+2) = (((diff & 0xff00) >> 8) & 0xff);
+  *(p+1) = (unsigned char)(diff & 0xff);
+  *(p+2) = (unsigned char)(((diff & 0xff00) >> 8) & 0xff);
   *(p+3) = 0x90;
   *(p+4) = 0x90;
   *(p+5) = 0x90;
+  // 0x1954 (signature)
   *(p+6) = 0x54;
   *(p+7) = 0x19;
+  // Highest supported FOSSIL function.
   *(p+8) = 0x0F;
 
   log("sig_addr=%p:%p, handler_addr=%p:%p diff=%d/%x", FP_SEG(sig_addr), FP_OFF(sig_addr), 
       FP_SEG(handler_addr), FP_OFF(handler_addr), diff, diff);
-  int __far *ip = (int __far*)(p+1);
+  int __far *ip = (int __far*)(p+1); // +1 is where the near address for JMP is
   log("p:%d/%x", *ip, *ip);
   _dos_setvect(0x14, (void (__interrupt __far *)()) int14_sig);
   fossil_enabled = 1;
@@ -126,3 +129,4 @@ void disable_fossil() {
   _dos_setvect(0x14, old_int14);
   log("FOSSIL Disabled: [%d calls]",num_calls);
 }
+
