@@ -1,1 +1,2 @@
-bin\FOSSPIPE.EXE command.com
+bin\FOSSPIPE.EXE fossinfo.exe
+
