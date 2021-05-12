@@ -35,7 +35,6 @@ static int fossil_enabled = 0;
 static int carrier = 1;
 static int pipe_handle = -1;
 static int log_count_ = 0;
-static unsigned orig_psp = 0;
 static int num_calls = 0;
 static int fos_calls[32];
 static int in_int14 = 0;
@@ -71,22 +70,6 @@ static unsigned status() {
   r |= STATUS_OUTPUT_AVAIL;
   r |= STATUS_OUTPUT_EMPTY;
   return r;
-}
-
-
-// See https://jeffpar.github.io/kbarchive/kb/075/Q75257/
-static unsigned int GetPSP() {
-  union _REGS r;
-  r.h.ah = 0x51;
-  _int86(0x21, &r, &r);
-  return r.x.bx;
-}
-
-static void SetPSP(unsigned int psp) {
-  union _REGS r;
-  r.h.ah = 0x50;
-  r.x.bx = psp;
-  _int86(0x21, &r, &r);
 }
 
 #pragma check_stack-
@@ -264,11 +247,11 @@ void enable_fossil(int nodenum, int comport) {
   } else {
     log("Pipe Opened");
   }
+  // This seems to make it work consistently with the test app.
   os_yield();
   // hack:
   pipe_handle = pipe->handle();
   log("FOSSIL Enabled. Pipe [handle:%d]", pipe_handle);
-  orig_psp = GetPSP();
 }
 
 void disable_fossil() {

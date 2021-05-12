@@ -118,7 +118,6 @@ Pipe::Pipe(const char* fn) __far {
 }
 
 void Pipe::close() __far {
-  log("TRACEX: Pipe::close()");
   if (handle_ == -1) {
     return;
   }
