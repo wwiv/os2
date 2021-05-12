@@ -16,9 +16,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-int fossil_enabled = 0;
-int carrier = 1;
-
 #define LOBYTE(w) ((w) & 0xff)
 #define HIBYTE(w) (((w) >> 8) & 0xff)
 
@@ -28,8 +25,20 @@ int carrier = 1;
 #define STATUS_INPUT_OVERRUN  0x0200
 #define STATUS_OUTPUT_AVAIL   0x2000
 #define STATUS_OUTPUT_EMPTY   0x4000
- 
-unsigned status() {
+
+void (__interrupt __far *old_int14)();
+
+static int fossil_enabled = 0;
+static int carrier = 1;
+static int foslog_handle_ = -1;
+static int log_count_ = 0;
+static unsigned orig_psp = 0;
+static int num_calls = 0;
+static int in_int14 = 0;
+static char m[20];
+
+
+static unsigned status() {
   unsigned r = STATUS_BASE;
   if (carrier) {
     r |= STATUS_CARRIER_DETECT;
@@ -41,29 +50,22 @@ unsigned status() {
 }
 
 
-void (__interrupt __far *old_int14)();
-
-int foslog_handle_ = NULL;
-int log_count_ = 0;
-unsigned orig_psp = 0;
-char m[20];
-
 // See https://jeffpar.github.io/kbarchive/kb/075/Q75257/
-unsigned int GetPSP() {
+static unsigned int GetPSP() {
   union _REGS r;
   r.h.ah = 0x51;
   _int86(0x21, &r, &r);
   return r.x.bx;
 }
 
-void SetPSP(unsigned int psp) {
+static void SetPSP(unsigned int psp) {
   union _REGS r;
   r.h.ah = 0x50;
   r.x.bx = psp;
   _int86(0x21, &r, &r);
 }
 
-void flog(const char* s) {
+static void flog(const char* s) {
   if (foslog_handle_ < 0) {
     log("foslog_handle: %d", foslog_handle_);
     return;
@@ -74,9 +76,6 @@ void flog(const char* s) {
   _dos_write(foslog_handle_, s, strlen(s), &num_written);
 }
 
-
-int num_calls = 0;
-static int in_int14 = 0;
 
 #pragma check_stack-
 #pragma warning(disable : 4100)
@@ -95,34 +94,45 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
   in_int14 = 1;
   
   int func = (int) HIBYTE(_ax);
-#if 0
-  cputs("I");
-  flog("Interrupt: 0x");
-  char m[10];
-  flog(itoa(func, m, 16));
-  flog("; handle: ");
-  flog(itoa(foslog_handle_, m, 10));
-  flog("; foscount: ");
-  flog(itoa(num_calls, m, 10));
-  flog("; logcount: ");
-  flog(itoa(log_count_, m, 10));
-  flog("\r\n");
-#endif  
   num_calls++;
   switch (func) {
   case 0x0: {
     // Set baud rate.  Nothing to set since we don't care about BPS
     _ax = status();
   } break;
-  case 0x01:
-  case 0x0B: {
-    // Transmit character with wait (or no wait for 0b)
+  case 0x01: {
+    /*
+      AH = 01h    Transmit character with wait
+
+            Parameters:
+                Entry:  AL = Character
+                        DX = Port number
+                Exit:   AX = Port status (see function 03h)
+
+     */
     unsigned char ch = (unsigned char) LOBYTE(_ax);
     unsigned int num_written;
     ++log_count_;
     // TODO add to pipe
     _dos_write(foslog_handle_, &ch, 1, &num_written);
     _ax = status();
+  }
+  case 0x0B: {
+    /*
+      AH = 0Bh    Transmit no wait
+
+            Parameters:
+                Entry:  DX = Port number
+                Exit:   AX = 0001h - Character was accepted
+                           = 0000h - Character was not accepted
+
+     */
+    // Transmit character with wait (or no wait for 0b)
+    unsigned char ch = (unsigned char) LOBYTE(_ax);
+    unsigned int num_written;
+    ++log_count_;
+    // TODO add to pipe
+    _ax = (_dos_write(foslog_handle_, &ch, 1, &num_written) == 0) ? 1 : 0;
   } break;
   case 0x02: {
     // Receive characer with wait
