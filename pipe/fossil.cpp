@@ -30,13 +30,14 @@ void (__interrupt __far *old_int14)();
 
 static int fossil_enabled = 0;
 static int carrier = 1;
-static int foslog_handle_ = -1;
+static int pipe_handle = -1;
 static int log_count_ = 0;
 static unsigned orig_psp = 0;
 static int num_calls = 0;
+static int fos_calls[32];
 static int in_int14 = 0;
 static char m[20];
-static Pipe* pipe = NULL;
+static Pipe __far * pipe = NULL;
 
 static unsigned status() {
   unsigned r = STATUS_BASE;
@@ -65,18 +66,6 @@ static void SetPSP(unsigned int psp) {
   _int86(0x21, &r, &r);
 }
 
-static void flog(const char* s) {
-  if (foslog_handle_ < 0) {
-    log("foslog_handle: %d", foslog_handle_);
-    return;
-  }
-
-  unsigned int num_written;
-  ++log_count_;
-  _dos_write(foslog_handle_, s, strlen(s), &num_written);
-}
-
-
 #pragma check_stack-
 #pragma warning(disable : 4100)
 
@@ -94,6 +83,9 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
   in_int14 = 1;
   
   int func = (int) HIBYTE(_ax);
+  if (func < 32 && func >= 0) {
+    ++fos_calls[func];
+  }
   num_calls++;
   switch (func) {
   case 0x0: {
@@ -113,10 +105,24 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
     unsigned char ch = (unsigned char) LOBYTE(_ax);
     unsigned int num_written;
     ++log_count_;
-    // TODO add to pipe
-    _dos_write(foslog_handle_, &ch, 1, &num_written);
+    pipe->write(ch);
     _ax = status();
   }
+  case 0x02: {
+    // Receive characer with wait
+    _ax - pipe->read();
+  } break;
+  case 0x03: {
+    // Request status. 
+    // TODO should we mask it?
+    _ax = status();
+  } break;
+  case 0x04: {
+    // AH = 04h    Initialize driver
+    // TODO should we mask it?
+    _ax = 0x1954;
+    _bx = 0x100f;
+  } break;
   case 0x0B: {
     /*
       AH = 0Bh    Transmit no wait
@@ -129,25 +135,8 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
      */
     // Transmit character with wait (or no wait for 0b)
     unsigned char ch = (unsigned char) LOBYTE(_ax);
-    unsigned int num_written;
     ++log_count_;
-    // TODO add to pipe
-    _ax = (_dos_write(foslog_handle_, &ch, 1, &num_written) == 0) ? 1 : 0;
-  } break;
-  case 0x02: {
-    // Receive characer with wait
-    //_ax = read char from pipe
-  } break;
-  case 0x03: {
-    // Request status. 
-    // TODO should we mask it?
-    _ax = status();
-  } break;
-  case 0x04: {
-    // Request status. 
-    // TODO should we mask it?
-    _ax = 0x1954;
-    _bx = 0x100f;
+    _ax = pipe->write(ch) ? 1 : 0;
   } break;
   case 0x0C: {
     // com peek
@@ -168,7 +157,7 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
                        DI = Offset into ES of user buffer
                Exit:   AX = Number of characters actually transferred  */
     char __far * buf = (char __far *) MK_FP(_es, _di);
-    _dos_write(foslog_handle_, buf, _cx, &_ax);
+    _ax = pipe->write(buf, _cx);
   } break;
   case 0x1B: {
     // Request status. 
@@ -178,7 +167,6 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
   } break;
   }
 
-  //cputs("]");
   in_int14 = 0;
 }
 
@@ -188,6 +176,10 @@ void __interrupt __far int14_sig() {
 
 void enable_fossil(int nodenum, int comport) {
   old_int14 = _dos_getvect(0x14);
+
+  for (int i=0; i<32; i++) {
+    fos_calls[i]=0;
+  }
 
   _disable();
   unsigned char __far * p = (unsigned char __far*) ((void __far*) int14_sig);
@@ -215,12 +207,19 @@ void enable_fossil(int nodenum, int comport) {
   int __far *ip = (int __far*)(p+1); // +1 is where the near address for JMP is
   log("p:%d/%x", *ip, *ip);
   fossil_enabled = 1;
-  if (_dos_open("wwivfoss.log", _O_WRONLY, &foslog_handle_) != 0) {
+
+  char pipename[200];
+  sprintf(pipename, "\\PIPE\\WWIV%d", nodenum);
+  pipe = new __far Pipe(pipename);
+  if (!pipe->is_open()) {
     log("Unable to open FOSSIL log: wwivfoss.log");
   } else {
-    lseek(foslog_handle_, 0, SEEK_END);
+    log("Pipe Opened");
   }
-  log("FOSSIL Enabled. Log File Handle: [%d:%p]", foslog_handle_, foslog_handle_);
+  os_yield();
+  // hack:
+  pipe_handle = pipe->handle();
+  log("FOSSIL Enabled. Pipe [handle:%d]", pipe_handle);
   orig_psp = GetPSP();
 }
 
@@ -230,14 +229,22 @@ void disable_fossil() {
     return;
   }
 
-  if (foslog_handle_> 3) {
-    _dos_close(foslog_handle_);
-    log("Closing wwivfoss.log");
-  }
-
   _disable();
   _dos_setvect(0x14, old_int14);
   _enable();
-  log("FOSSIL Disabled: [%d calls], [%d logs]", num_calls, log_count_);
+
+  log("FOSSIL Disabled: [%d calls][handle: %d]", num_calls, pipe->handle());
+
+  for (int i=0; i<32; i++) {
+    if (fos_calls[i]) {
+      log("Fossil Call: 0x%02X: %d times", i, fos_calls[i]);
+    }
+  }
+  log("Pipe: [writes: %d][errors: %d][bytes: %ld]", pipe->num_writes(),
+      pipe->num_errors(), pipe->bytes_written());
+
+  log("Closed pipe");
+  delete pipe;
+  pipe = NULL;
 }
 

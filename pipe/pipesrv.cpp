@@ -52,7 +52,7 @@ static void log(const char* msg, ...) {
 }
 
 static void os_yield() {
-  DosSleep(100);
+  DosSleep(1);
 }
 
 static HFILE create_pipe(const char *name) {
@@ -76,7 +76,7 @@ static HFILE create_pipe(const char *name) {
     }
   } while (rc != NO_ERROR);
   log("Pipe connected", rc);
-  DosSleep(200);
+  DosSleep(100);
   return hPipe;
 }
 

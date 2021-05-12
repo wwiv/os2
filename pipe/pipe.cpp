@@ -104,14 +104,21 @@ int DosPeekNmPipe(int handle) {
   return 0;
 }
 
-Pipe::Pipe(const char* fn) {
-  if (_dos_open(fn, _O_RDWR, &handle_) != 0) {
-    log("ERROR: Unable to open pipe");
+Pipe::Pipe(const char* fn) __far {
+  int h;
+  if (_dos_open(fn, _O_RDWR, &h) != 0) {
+    log("ERROR: (Pipe) Unable to open pipe: '%s'", fn);
     handle_ = -1;
+  } else {
+    handle_ = h;
+    num_writes_ = 0;
+    num_errors_ = 0;
+    bytes_written_ = 0;
   }
 }
 
-void Pipe::close() {
+void Pipe::close() __far {
+  log("TRACEX: Pipe::close()");
   if (handle_ == -1) {
     return;
   }
@@ -119,15 +126,17 @@ void Pipe::close() {
   handle_ = -1;
 }
 
-Pipe::~Pipe() {
-  close();
+Pipe::~Pipe() __far {
+  if (!is_open()) {
+    close();
+  }
 }
 
-int Pipe::is_open() { 
+int Pipe::is_open() __far { 
   return handle_ != -1;
 }
 
-int Pipe::read() {
+int Pipe::read() __far {
   int ch = 0;
   unsigned num_read;
   int ret = _dos_read(handle_, &ch, 1, &num_read);
@@ -137,15 +146,29 @@ int Pipe::read() {
   return ch;
 }
 
-int Pipe::write(int ch) {
+int Pipe::write(int ch) __far {
   unsigned int num_written;
+  ++num_writes_;
   if (_dos_write(handle_, &ch, 1, &num_written) != 0) {
+    ++num_errors_;
     return 0;
   }
+  ++bytes_written_;
   return num_written;
 }
 
-int Pipe::peek() {
+int Pipe::write(const char __far * buf, int maxlen) {
+  unsigned int num_written;
+  ++num_writes_;
+  if (_dos_write(handle_, buf, maxlen, &num_written) != 0) {
+    ++num_errors_;
+    return 0;
+  }
+  bytes_written_ += maxlen;
+  return maxlen;
+}
+
+int Pipe::peek() __far {
   return DosPeekNmPipe(handle_);
 }
 

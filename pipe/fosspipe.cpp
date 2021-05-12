@@ -30,6 +30,7 @@ int main(int argc, char** argv) {
   App app;
   cout << app.comport << endl;
   int had_positional = 0;
+  cerr << "Num arags: " << argc << endl;
   for (int i = 1; i < argc; i++) {
     const char* arg = argv[i];
     const int alen = strlen(arg);
@@ -56,12 +57,12 @@ int main(int argc, char** argv) {
 	app.comport = atoi(sval);
       } break;
       }
-    } else {
-      // Positional arg, must be part of the commandline.
-      app.cmdline.push_back(arg);
-      cerr << "Positional: '" << arg << "'" << endl;
-      had_positional = 1;
+      continue;
     }
+    had_positional = 1;
+    // Positional arg, must be part of the commandline.
+    app.cmdline.push_back(arg);
+    cerr << "Positional: '" << arg << "'" << endl;
   } 
 
   // Args parsed, do something.

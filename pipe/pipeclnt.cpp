@@ -14,8 +14,8 @@
 
 int main(int, char**) {
   log("PIPECLNT.EXE - Welcome");
-  Pipe pipe("\\PIPE\\WWIV1");
-  if (!pipe.is_open()) {
+  Pipe __far * pipe = new __far Pipe("\\PIPE\\WWIV1");
+  if (!pipe->is_open()) {
     log("Unable to open pipe");
     return 1;
     os_yield();
@@ -26,7 +26,7 @@ int main(int, char**) {
   int i = 0;
   for (;;) {
     char buf;
-    int num_waiting = pipe.peek();
+    int num_waiting = pipe->peek();
     if (num_waiting < 0) {
       log("num_waiting < 0");
       break;
@@ -37,7 +37,7 @@ int main(int, char**) {
 	log("Exit signaled.");
 	break;
       }
-      pipe.write(ch);
+      pipe->write(ch);
       outch(ch);
     }
     if (!num_waiting) {
@@ -48,7 +48,7 @@ int main(int, char**) {
       }
       continue;
     }
-    buf = pipe.read();
+    buf = pipe->read();
     if (buf < 1) {
       log("buf < 1: %d", buf);
       break;
@@ -59,7 +59,10 @@ int main(int, char**) {
     }
   }
 
-  log("Closing Pipe!\n");
-  pipe.close();
+  log("Closing Pipe!");
+  pipe->close();
+  log("Pipe Closed!");
+  delete pipe;
+  pipe = NULL;
   return 0;
 }
