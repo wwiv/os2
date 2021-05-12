@@ -26,6 +26,9 @@
 #define STATUS_OUTPUT_AVAIL   0x2000
 #define STATUS_OUTPUT_EMPTY   0x4000
 
+#define FOSSIL_HIGHEST_FUNCTION 0x0F
+#define FOSSIL_SIGNATURE 0x1954
+
 void (__interrupt __far *old_int14)();
 
 static int fossil_enabled = 0;
@@ -38,6 +41,26 @@ static int fos_calls[32];
 static int in_int14 = 0;
 static char m[20];
 static Pipe __far * pipe = NULL;
+
+char __far * fossil_info_ident = "WWIV OS/2 FOSSIL Driver";
+
+#pragma pack(1)
+struct fossil_info {
+   unsigned int size;
+   unsigned char majver;
+   unsigned char minver;
+   char __far *  ident;
+   unsigned int  in_buffer_size;
+   unsigned int  in_bytes_avail;
+   unsigned int  out_buffer_size;
+   unsigned int  out_buffer_avail;
+   unsigned char width;
+   unsigned char height;
+   unsigned char baudmask;
+};
+#pragma pack()
+
+static struct fossil_info info;
 
 static unsigned status() {
   unsigned r = STATUS_BASE;
@@ -103,7 +126,6 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
 
      */
     unsigned char ch = (unsigned char) LOBYTE(_ax);
-    unsigned int num_written;
     ++log_count_;
     pipe->write(ch);
     _ax = status();
@@ -120,7 +142,7 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
   case 0x04: {
     // AH = 04h    Initialize driver
     // TODO should we mask it?
-    _ax = 0x1954;
+    _ax = FOSSIL_SIGNATURE;
     _bx = 0x100f;
   } break;
   case 0x0B: {
@@ -160,10 +182,36 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
     _ax = pipe->write(buf, _cx);
   } break;
   case 0x1B: {
+    /*
+     AH = 1Bh    Return information about the driver
+
+           Parameters:
+               Entry:  CX = Size of user info buffer in bytes
+                       DX = Port number
+                       ES = Segment of user info buffer
+                       DI = Offset into ES of user info buffer
+               Exit:   AX = Number of bytes actually transferred
+     */
     // Request status. 
     // TODO should we mask it?
-    _ax = 0x1954;
-    _bx = 0x100f;
+    unsigned int siz = sizeof(info);
+    if (siz < _cx) {
+      siz = _cx;
+    }
+    info.size = sizeof(info);
+    info.majver = 10;
+    info.minver = 1;
+    info.ident = fossil_info_ident;
+    info.in_buffer_size = 100;
+    info.in_bytes_avail = 100;
+    info.out_buffer_size = 100;
+    info.out_buffer_avail = 100;
+    info.width = 80;
+    info.height = 25;
+    info.baudmask = 0x23; // N81
+    void __far * p = MK_FP(_es, _di);
+    _fmemcpy(p, &info, siz);
+    _ax = siz;
   } break;
   }
 
@@ -195,8 +243,8 @@ void enable_fossil(int nodenum, int comport) {
   *(p+4) = 0x90;
   *(p+5) = 0x90;
   // 0x1954 (signature)
-  *(p+6) = 0x54;
-  *(p+7) = 0x19;
+  *(p+6) = LOBYTE(FOSSIL_SIGNATURE);
+  *(p+7) = HIBYTE(FOSSIL_SIGNATURE);
   // Highest supported FOSSIL function.
   *(p+8) = 0x0F;
   _dos_setvect(0x14, (void (__interrupt __far *)()) int14_sig);
