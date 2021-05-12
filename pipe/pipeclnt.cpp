@@ -14,7 +14,7 @@
 
 int main(int, char**) {
   log("PIPECLNT.EXE - Welcome");
-  Pipe pipe("\\PIPE\\FOO");
+  Pipe pipe("\\PIPE\\WWIV1");
   if (!pipe.is_open()) {
     log("Unable to open pipe");
     return 1;
@@ -28,6 +28,7 @@ int main(int, char**) {
     char buf;
     int num_waiting = pipe.peek();
     if (num_waiting < 0) {
+      log("num_waiting < 0");
       break;
     }
     if (_kbhit()) {
@@ -49,6 +50,7 @@ int main(int, char**) {
     }
     buf = pipe.read();
     if (buf < 1) {
+      log("buf < 1: %d", buf);
       break;
     } if (buf == 0) {
       log("-");

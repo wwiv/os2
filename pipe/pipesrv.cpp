@@ -57,7 +57,7 @@ static void os_yield() {
 
 static HFILE create_pipe(const char *name) {
   char pipe_name[200];
-  sprintf(pipe_name, "\\PIPE\\%s", name);
+  sprintf(pipe_name, "\\PIPE\\WWIV%s", name);
   log("Dos Create Pipe name : %s", pipe_name);
   HFILE hPipe;
   auto rc = DosCreateNPipe((const unsigned char*) pipe_name,
@@ -85,7 +85,7 @@ static int close_pipe(HFILE h) {
 }
 
 int main(int argc, char** argv) {
-  auto h = create_pipe("FOO");
+  auto h = create_pipe("1");
   unsigned long num_written;
   log("About to write");
   int rc = DosWrite(h, "Hello\n", 6, &num_written);

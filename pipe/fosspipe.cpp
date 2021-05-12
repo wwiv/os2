@@ -18,10 +18,11 @@
 
 class App {
 public:
-  App() : comport(0), cmdline(20) {}
+  App() : comport(0), node_number(0), cmdline(20) {}
   ~App() {}
 
   int comport;
+  int node_number;
   Array cmdline;
 };
 
@@ -45,6 +46,16 @@ int main(int argc, char** argv) {
       char schar = *(arg+1);
       const char* sval = (arg+2);
       cerr << "Switch: " <<  schar << "; value: '" << sval << "'" << endl;
+      switch (schar) {
+      case 'N': {
+	// Node number
+	app.node_number = atoi(sval);
+      } break;
+      case 'P': {
+	// Node number
+	app.comport = atoi(sval);
+      } break;
+      }
     } else {
       // Positional arg, must be part of the commandline.
       app.cmdline.push_back(arg);
@@ -55,7 +66,7 @@ int main(int argc, char** argv) {
 
   // Args parsed, do something.
 
-  enable_fossil();
+  enable_fossil(app.node_number, app.comport);
   int ret = _spawnvp(_P_WAIT, app.cmdline.at(0), 
                      (const char**) app.cmdline.items());
   disable_fossil();

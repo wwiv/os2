@@ -36,7 +36,7 @@ static unsigned orig_psp = 0;
 static int num_calls = 0;
 static int in_int14 = 0;
 static char m[20];
-
+static Pipe* pipe = NULL;
 
 static unsigned status() {
   unsigned r = STATUS_BASE;
@@ -161,12 +161,12 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
   case 0x19: {
     // block write
     /*
-|           Parameters:
-|               Entry:  CX = Maximum number of characters to transfer
-|                       DX = Port number
-|                       ES = Segment of user buffer
-|                       DI = Offset into ES of user buffer
-|               Exit:   AX = Number of characters actually transferred  */
+           Parameters:
+               Entry:  CX = Maximum number of characters to transfer
+                       DX = Port number
+                       ES = Segment of user buffer
+                       DI = Offset into ES of user buffer
+               Exit:   AX = Number of characters actually transferred  */
     char __far * buf = (char __far *) MK_FP(_es, _di);
     _dos_write(foslog_handle_, buf, _cx, &_ax);
   } break;
@@ -186,7 +186,7 @@ void __interrupt __far int14_sig() {
   char pad[10] = {0};
 }
 
-void enable_fossil() {
+void enable_fossil(int nodenum, int comport) {
   old_int14 = _dos_getvect(0x14);
 
   _disable();

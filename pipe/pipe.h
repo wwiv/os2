@@ -16,6 +16,7 @@ class Pipe {
 
   int is_open();
   void close();
+  int handle() const { return handle_; }
 
  private:
   int handle_;

@@ -105,14 +105,17 @@ int DosPeekNmPipe(int handle) {
 }
 
 Pipe::Pipe(const char* fn) {
-  handle_ = _open(fn, _O_RDWR | _O_BINARY);
+  if (_dos_open(fn, _O_RDWR, &handle_) != 0) {
+    log("ERROR: Unable to open pipe");
+    handle_ = -1;
+  }
 }
 
 void Pipe::close() {
   if (handle_ == -1) {
     return;
   }
-  ::close(handle_);
+  _dos_close(handle_);
   handle_ = -1;
 }
 
@@ -126,15 +129,20 @@ int Pipe::is_open() {
 
 int Pipe::read() {
   int ch = 0;
-  int ret = _read(handle_, &ch, 1);
-  if (ret < 0) {
+  unsigned num_read;
+  int ret = _dos_read(handle_, &ch, 1, &num_read);
+  if (ret != 0) {
     return -1;
   }
   return ch;
 }
 
 int Pipe::write(int ch) {
-  return _write(handle_, &ch, 1);
+  unsigned int num_written;
+  if (_dos_write(handle_, &ch, 1, &num_written) != 0) {
+    return 0;
+  }
+  return num_written;
 }
 
 int Pipe::peek() {
