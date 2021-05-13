@@ -138,7 +138,6 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
     // pipe->write("0x03: ", 6);
     // Request status. 
     // TODO should we mask it?
-    carrier = pipe->is_open();
     _ax = status();
   } break;
   case 0x04: {
@@ -214,7 +213,7 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
     info.out_buffer_avail = 100;
     info.width = 80;
     info.height = 25;
-    info.baudmask = 0x23; // N81
+    info.baudmask = 0x23; // 38400 N81
     void __far * p = MK_FP(_es, _di);
     _fmemcpy(p, &info, siz);
     _ax = siz;
