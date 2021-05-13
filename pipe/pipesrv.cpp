@@ -63,7 +63,7 @@ static HFILE create_pipe(const char *name) {
   auto rc = DosCreateNPipe((const unsigned char*) pipe_name,
 			   &hPipe,
 			   NP_ACCESS_DUPLEX,
-			   NP_NOWAIT | NP_TYPE_BYTE | NP_READMODE_BYTE | 255,
+			   NP_NOWAIT | NP_TYPE_BYTE | NP_READMODE_BYTE | 0xFF,
 			   PIPE_BUFFER_SIZE,
 			   PIPE_BUFFER_SIZE,
 			   0); // 0 == No Wait.
@@ -87,43 +87,48 @@ static int close_pipe(HFILE h) {
 int main(int argc, char** argv) {
   auto h = create_pipe("1");
   unsigned long num_written;
+  /*
   log("About to write");
   int rc = DosWrite(h, "Hello\n", 6, &num_written);
   if (rc != NO_ERROR) {
     os_yield();
-    log("Error Writing to the pipe");
+    log("Error Writing to the pipe: %d", rc);
   }
   log("Wrote [%ld] to pipe", num_written);
-
+  */
   do {
     if (kbhit()) {
+      //fprintf(stderr, "[kbhit]");
       char ch = (char) getch();
       unsigned long num_written;
       int rc = DosWrite(h, &ch, 1, &num_written);
       if (rc != NO_ERROR) {
 	os_yield();
-	log("Error Writing to the pipe");
+	log("Error Writing to the pipe: %d", rc);
       } else if (ch == 27) {
 	// ESCAPE to exit
 	log("Exiting signaled");
 	break;
       }
+      //log("DosWrite: [%d]", ch);
       outch(ch);
     }
     char ch;
     ULONG num_read;
     int rc = DosRead(h, &ch, 1, &num_read);
-    if (rc == NO_ERROR) {
-      if (num_read == 0) {
-	// If there was no data, rc should be ERROR_NO_DATA (232), so success
-	// with 0 read means the pipe is closed.
-	fprintf(stderr, "Remote closed pipe.");
-	break;
-      }
+    //fprintf(stderr, "[loop]");
+    if (rc == NO_ERROR && num_read > 0) {
       outch(ch);
       fflush(stdout);
+    } else if (rc != 232) {
+      // Only yield if we didn't do anything.
+      log("DosRead error [%d], numread: [%d]", rc, num_read);
+      os_yield();
+      break;
+    } else {
+      //log("DosRead error [%d], numread: [%d]", rc, num_read);
+      os_yield();
     }
-    os_yield();
   } while (true);
   close_pipe(h);
 

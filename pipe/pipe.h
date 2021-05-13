@@ -11,6 +11,7 @@ class __far Pipe {
   Pipe(const char* fn);
   ~Pipe();
   int read();
+  int blocking_read();
   int write(int ch);
   int write(const char __far * buf, int maxlen);
   int peek();
@@ -28,6 +29,7 @@ class __far Pipe {
   int num_writes_;
   int num_errors_;
   long bytes_written_;
+  int next_char_;
 };
 
 #endif // PIPE_H

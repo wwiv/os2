@@ -26,7 +26,7 @@
 #define STATUS_OUTPUT_AVAIL   0x2000
 #define STATUS_OUTPUT_EMPTY   0x4000
 
-#define FOSSIL_HIGHEST_FUNCTION 0x0F
+#define FOSSIL_HIGHEST_FUNCTION 0x1B
 #define FOSSIL_SIGNATURE 0x1954
 
 void (__interrupt __far *old_int14)();
@@ -40,6 +40,7 @@ static int fos_calls[32];
 static int in_int14 = 0;
 static char m[20];
 static Pipe __far * pipe = NULL;
+static int char_avail = 0;
 
 char __far * fossil_info_ident = "WWIV OS/2 FOSSIL Driver";
 
@@ -63,8 +64,21 @@ static struct fossil_info info;
 
 static unsigned status() {
   unsigned r = STATUS_BASE;
-  if (carrier) {
-    r |= STATUS_CARRIER_DETECT;
+  if (!pipe->is_open() || !carrier) {
+    carrier = 0;
+    return r;
+  }
+
+  r |= STATUS_CARRIER_DETECT;
+  if (!char_avail) {
+    // pipe->write("stat: Before Peek ", 18);
+    char_avail = pipe->peek();
+    // pipe->write("stat: After Peek ", 17);
+  }
+  if (char_avail > 0) {
+    r |= STATUS_INPUT_AVAIL;
+  } else if (char_avail < 0) {
+    carrier = 0;
   }
   // HACK: Claim were were done writing
   r |= STATUS_OUTPUT_AVAIL;
@@ -109,24 +123,30 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
 
      */
     unsigned char ch = (unsigned char) LOBYTE(_ax);
+    //pipe->write("0x01: ", 6);
     ++log_count_;
     pipe->write(ch);
     _ax = status();
-  }
+  } break;
   case 0x02: {
+    //pipe->write("0x02: ", 6);
     // Receive characer with wait
-    _ax - pipe->read();
+    char_avail = 0;
+    _ax = pipe->blocking_read();
   } break;
   case 0x03: {
+    // pipe->write("0x03: ", 6);
     // Request status. 
     // TODO should we mask it?
+    carrier = pipe->is_open();
     _ax = status();
   } break;
   case 0x04: {
     // AH = 04h    Initialize driver
     // TODO should we mask it?
     _ax = FOSSIL_SIGNATURE;
-    _bx = 0x100f;
+    _bx = 0x1000 | FOSSIL_HIGHEST_FUNCTION;
+    //pipe->write("0x04: ", 6);
   } break;
   case 0x0B: {
     /*
@@ -141,7 +161,10 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
     // Transmit character with wait (or no wait for 0b)
     unsigned char ch = (unsigned char) LOBYTE(_ax);
     ++log_count_;
-    _ax = pipe->write(ch) ? 1 : 0;
+    pipe->write(ch);
+    _ax = 1;
+    // See if this makes gwar work.
+    os_yield();
   } break;
   case 0x0C: {
     // com peek
@@ -229,7 +252,7 @@ void enable_fossil(int nodenum, int comport) {
   *(p+6) = LOBYTE(FOSSIL_SIGNATURE);
   *(p+7) = HIBYTE(FOSSIL_SIGNATURE);
   // Highest supported FOSSIL function.
-  *(p+8) = 0x0F;
+  *(p+8) = FOSSIL_HIGHEST_FUNCTION;
   _dos_setvect(0x14, (void (__interrupt __far *)()) int14_sig);
   _enable();
 

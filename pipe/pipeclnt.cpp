@@ -13,7 +13,7 @@
 #include <sys/types.h>
 
 int main(int, char**) {
-  log("PIPECLNT.EXE - Welcome");
+  log("PIPECLNT.EXE: Opening: \\PIPE\\WWIV1");
   Pipe __far * pipe = new __far Pipe("\\PIPE\\WWIV1");
   if (!pipe->is_open()) {
     log("Unable to open pipe");
@@ -28,7 +28,7 @@ int main(int, char**) {
     char buf;
     int num_waiting = pipe->peek();
     if (num_waiting < 0) {
-      log("num_waiting < 0");
+      log("num_waiting < 0: [%d]", num_waiting);
       break;
     }
     if (_kbhit()) {
@@ -48,6 +48,7 @@ int main(int, char**) {
       }
       continue;
     }
+    log("CALLING READ");
     buf = pipe->read();
     if (buf < 1) {
       log("buf < 1: %d", buf);
