@@ -3,12 +3,12 @@
 #define INCL_DOSPROCESS
 #include <os2.h>
 
-#include <ctype.h>
+#include <cctype>
 #include <fcntl.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #define ENABLE_LOG
 
@@ -16,11 +16,25 @@ static constexpr int PIPE_BUFFER_SIZE = 4000;
 
 static int saved_key = -1;
 
+struct conf_t {
+  bool local_echo{false};
+};
+
+/*
+  Control protocol:
+
+  From  To     MSG   Meaning
+ +-----+------+------+--------------------------+
+  DOS   OS/2   H      Heartbeat (still alive)
+  DOS   OS/2   D      Disconnect (not sure how it'd know)
+  OS/2  DOS    D      Disconnect (drop carrier)
+  DOS   OS/2   R      FOSSIL Signalled a reboot is needed.
+  DOS   OS/2   T      Enable telnet control processing
+  DOS   OS/2   B      Switch to binary mode (no telnet processing)
+ */
+
 static void outch(int ch) {
   fprintf(stdout, "%c", ch);
-  if (ch == '\r') {
-    fprintf(stdout, "\n");
-  }
   fflush(stdout);
 }
 
@@ -67,73 +81,128 @@ static HFILE create_pipe(const char *name) {
 			   PIPE_BUFFER_SIZE,
 			   PIPE_BUFFER_SIZE,
 			   0); // 0 == No Wait.
-  log("Dos Create Pipe returns : %d",rc);
-  log("Waiting for pipe to connect");
+  log("Dos Create Pipe [name: %s][handle: %d][res: %d]", pipe_name, hPipe, rc);
+  return hPipe;
+}
+
+static bool connect_pipe(HFILE h) {
+  log("Waiting for pipe to connect: [handle: %d]", h);
+  int i = 0;
+  auto rc = NO_ERROR;
   do {
-    rc = DosConnectNPipe(hPipe);
+    if (i++ > 1000) {
+      // Failed to connect to pipe.
+      return false;
+    }
+    rc = DosConnectNPipe(h);
     if (rc != 0) {
+      // Sleep for 100ms
+      DosSleep(100);
       os_yield();
     }
   } while (rc != NO_ERROR);
   log("Pipe connected", rc);
   DosSleep(100);
-  return hPipe;
+  return true;
 }
 
 static int close_pipe(HFILE h) {
   return DosDisConnectNPipe(h);
 }
 
-int main(int argc, char** argv) {
-  auto h = create_pipe("1");
-  unsigned long num_written;
-  /*
-  log("About to write");
-  int rc = DosWrite(h, "Hello\n", 6, &num_written);
-  if (rc != NO_ERROR) {
-    os_yield();
-    log("Error Writing to the pipe: %d", rc);
+bool dos_pipe_loop(const int node_num, const conf_t& conf) {
+  char pipe_name[81];
+  sprintf(pipe_name, "%d", node_num);
+  auto h = create_pipe(pipe_name);
+  if (!connect_pipe(h)) {
+    log("Failed to connect to data pipe.");
+    return false;
   }
-  log("Wrote [%ld] to pipe", num_written);
-  */
+  strcat(pipe_name, "C");
+  auto hc = create_pipe(pipe_name);
+  if (!connect_pipe(hc)) {
+    log("Failed to connect to control pipe.");
+    return false;
+  }
+  unsigned long num_written;
   do {
     if (kbhit()) {
-      //fprintf(stderr, "[kbhit]");
-      char ch = (char) getch();
+      auto ch = (char) getch();
       unsigned long num_written;
-      int rc = DosWrite(h, &ch, 1, &num_written);
+      auto rc = DosWrite(h, &ch, 1, &num_written);
       if (rc != NO_ERROR) {
 	os_yield();
 	log("Error Writing to the pipe: %d", rc);
       } else if (ch == 27) {
 	// ESCAPE to exit
-	log("Exiting signaled");
-	break;
+	log("Exiting signaled. Sending (D)ISCONNECT");
+	ch = 'D';
+	rc = DosWrite(hc, &ch, 1, &num_written);
+	// break;
       }
-      //log("DosWrite: [%d]", ch);
-      outch(ch);
+      if (conf.local_echo) {
+	outch(ch);
+      }
     }
+
     char ch;
     ULONG num_read;
-    int rc = DosRead(h, &ch, 1, &num_read);
-    //fprintf(stderr, "[loop]");
-    if (rc == NO_ERROR && num_read > 0) {
+
+    // Read Data
+    if (auto rc = DosRead(h, &ch, 1, &num_read); rc == NO_ERROR && num_read > 0) {
       outch(ch);
-      fflush(stdout);
+      continue;
     } else if (rc != 232) {
       // Only yield if we didn't do anything.
       log("DosRead error [%d], numread: [%d]", rc, num_read);
       os_yield();
       break;
     } else {
-      //log("DosRead error [%d], numread: [%d]", rc, num_read);
       os_yield();
     }
+
+    // Read Control
+    
+    if (auto rc = DosRead(hc, &ch, 1, &num_read); rc == NO_ERROR && num_read > 0) {
+      switch (ch) {
+      case 'D': 
+	// Froced disconnect.
+	close_pipe(h);
+	close_pipe(hc);
+	return true;
+      case 'H': {
+	// Heartbeat
+      } break;
+      }
+      continue;
+    } else if (rc != 232) {
+      // Only yield if we didn't do anything.
+      log("DosRead error [%d], numread: [%d]", rc, num_read);
+      os_yield();
+      break;
+    } else {
+      os_yield();
+    }
+
   } while (true);
   close_pipe(h);
+  close_pipe(hc);
 
-  return 0;
+  return true;
 }
 
 
-
+int main(int argc, char** argv) {
+  conf_t conf{};
+  
+  for (int i=0; i <argc; i++) {
+    const char* c = argv[i];
+    if (*argv[i] == '-' && strlen(c) > 1) {
+      switch (std::toupper(*(c+1))) {
+	case 'E': conf.local_echo = true; break;
+      }
+    }
+  }
+  auto ret = dos_pipe_loop(1, conf);
+  return ret ? 0 : 1;
+}

@@ -131,7 +131,9 @@ int DosPeekNmPipe(int handle) {
 
 
 Pipe::Pipe(const char* fn) __far {
-  next_char_ = 0;
+  next_char_ = -1;
+  control_handle_ = -1;
+
   int h;
   if (_dos_open(fn, _O_RDWR, &h) != 0) {
     log("ERROR: (Pipe) Unable to open pipe: '%s'", fn);
@@ -142,18 +144,52 @@ Pipe::Pipe(const char* fn) __far {
     num_errors_ = 0;
     bytes_written_ = 0;
     os_yield();
-    int peeked = DosPeekNmPipe(handle_);
-    log("peeked: [%d]", peeked);
     SetPipeNonBlocking(handle_);
+  }
+
+  char control_fn[81];
+  sprintf(control_fn, "%sC", fn);
+  int count = 0;
+  h = -1;
+  while (control_handle_ == -1 && count++ < 100 ) {
+    if (_dos_open(control_fn, _O_RDWR, &h) == 0) {
+      control_handle_ = h;
+      os_yield();
+      SetPipeNonBlocking(control_handle_);
+      break;
+    }
+    sleep(100);
   }
 }
 
-void Pipe::close() __far {
-  if (handle_ == -1) {
-    return;
+/** Send a control code to the remote side */
+int Pipe::send_control(char code) __far {
+  unsigned int num_written;
+  return _dos_write(control_handle_, &code, 1, &num_written) == 0;
+}
+
+/** Gets the current control code */
+char Pipe::control_code() __far {
+  unsigned num_read;
+  char ch;
+  int ret = _dos_read(control_handle_, &ch, 1, &num_read);
+  if (ret == 0 && num_read > 0) {
+    return ch;
   }
-  _dos_close(handle_);
-  handle_ = -1;
+  return -1;
+}
+
+
+void Pipe::close() __far {
+  if (handle_ != -1) {
+    _dos_close(handle_);
+    handle_ = -1;
+  }
+
+  if (control_handle_ != -1) {
+    _dos_close(control_handle_);
+    control_handle_ = -1;
+  }
 }
 
 Pipe::~Pipe() __far {
@@ -163,11 +199,11 @@ Pipe::~Pipe() __far {
 }
 
 int Pipe::is_open() __far { 
-  return handle_ != -1;
+  return handle_ != -1 && control_handle_ != -1;
 }
 
 int Pipe::peek() __far {
-  if (next_char_ <= 0) {
+  if (next_char_ < 0) {
     next_char_ = read();
   }
   return next_char_;
@@ -175,34 +211,24 @@ int Pipe::peek() __far {
 
 int Pipe::read() __far {
   int ch = 0;
-  if (next_char_ > 0) {
+  if (next_char_ >= 0) {
     ch = next_char_;
-    next_char_ = 0;
+    next_char_ = -1;
     return ch;
   }
 
   unsigned num_read;
   int ret = _dos_read(handle_, &ch, 1, &num_read);
-  if (ret == 0 && num_read == 0) {
-    return 0;
-  }
-  if (ret == 5) {
-    // Not sure why we get permission denied but it fixes itself
-    return 0;
-  }
   if (ret == 0 && num_read > 0) {
-    // Yippie! We got something!
+    ++bytes_read_;
     return ch;
   }
-  if (ret != 0) {
+  if (ret != 0 && ret != 5) {
+    // Not sure why we get permission denied but it fixes itself
     ++num_errors_;
-    // DEBUG IT
-    write("READ", 4);
-    write(ret & 0xff);
     close();
-    return -1;
   }
-  return ch;
+  return -1;
 }
 
 int Pipe::blocking_read() {
@@ -214,7 +240,6 @@ int Pipe::blocking_read() {
     os_yield();
   }
 }
-
 
 int Pipe::write(int ch) __far {
   unsigned int num_written;

@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -69,4 +70,13 @@ void outch(int ch) {
   }
   fflush(stdout);
 }
+
+void sleep(int ms) {
+  clock_t then = clock();
+  while ((clock() - then) * 1000 / CLOCKS_PER_SEC < ms) {
+    // Try to yield timeslices until we're done waiting.
+    os_yield();
+  }
+}
+
 

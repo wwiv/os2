@@ -26,6 +26,9 @@ void os_yield();
 /** Writes ch to stdout, processing \r => \r\n */
 void outch(int ch);
 
+/** Sleeps for roughly ms milliseconds */
+void sleep(int ms);
+
 #endif // UTIL_H
 
 

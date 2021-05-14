@@ -70,15 +70,11 @@ static unsigned status() {
   }
 
   r |= STATUS_CARRIER_DETECT;
-  if (!char_avail) {
-    // pipe->write("stat: Before Peek ", 18);
+  if (char_avail <= 0) {
     char_avail = pipe->peek();
-    // pipe->write("stat: After Peek ", 17);
   }
   if (char_avail > 0) {
     r |= STATUS_INPUT_AVAIL;
-  } else if (char_avail < 0) {
-    carrier = 0;
   }
   // HACK: Claim were were done writing
   r |= STATUS_OUTPUT_AVAIL;
@@ -138,6 +134,10 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
     // pipe->write("0x03: ", 6);
     // Request status. 
     // TODO should we mask it?
+    int cc = pipe->control_code();
+    if (cc == 'D') {
+      carrier = 0;
+    }
     _ax = status();
   } break;
   case 0x04: {
@@ -167,6 +167,8 @@ void __interrupt __far int14_handler( unsigned _es, unsigned _ds,
   } break;
   case 0x0C: {
     // com peek
+    int ch = pipe->peek();
+    _ax = (ch == -1) ? 0xffff : ch;
   } break;
   case 0x0D: {
     // read keyboard without wait
