@@ -45,14 +45,32 @@ const char* Array::at(int n) const {
 }
 
 
+// FILE handle for the log file
+FILE* log_file = stderr;
+
+void open_log(const char* filename) {
+  close_log();
+  log_file = fopen(filename, "at");
+  if (!log_file) {
+    log_file = stderr;
+  }
+}
+
+void close_log() {
+  if (log_file && log_file != stderr) {
+    fclose(log_file);
+  }
+  log_file = stderr;
+}
+
 void log(const char* msg, ...) {
 #ifndef DISABLE_LOG
   va_list argptr;
   va_start(argptr, msg);
-  vfprintf(stderr, msg, argptr);
+  vfprintf(log_file, msg, argptr);
   va_end(argptr);
-  fprintf(stderr, "\r\n");
-  fflush(stderr);
+  fprintf(log_file, "\r\n");
+  fflush(log_file);
 #endif
 }
 

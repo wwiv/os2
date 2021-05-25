@@ -16,6 +16,8 @@ public:
   char** items_;
 };
 
+void open_log(const char* filename);
+void close_log();
 
 /** Writes a log entry to stderr */
 void log(const char* msg, ...);

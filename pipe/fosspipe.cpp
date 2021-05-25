@@ -18,17 +18,18 @@
 
 class App {
 public:
-  App() : comport(0), node_number(0), cmdline(20) {}
+  App() : comport(0), node_number(0), pause_done(0), cmdline(20) {}
   ~App() {}
 
   int comport;
   int node_number;
+  int pause_done;
   Array cmdline;
 };
 
 int main(int argc, char** argv) {
   App app;
-  cout << app.comport << endl;
+  open_log("wwivfoss.log");
   int had_positional = 0;
   cerr << "Num arags: " << argc << endl;
   for (int i = 1; i < argc; i++) {
@@ -56,6 +57,10 @@ int main(int argc, char** argv) {
 	// Node number
 	app.comport = atoi(sval);
       } break;
+      case 'W': {
+	// wait
+	app.pause_done = 1;
+      } break;
       }
       continue;
     }
@@ -72,8 +77,13 @@ int main(int argc, char** argv) {
                      (const char**) app.cmdline.items());
   disable_fossil();
   if (ret < 0) {
-    cerr << "Error spawning process. " << endl;
-    return 1;
+    log("Error spawning process. ");
   }
-  return 0;
+  if (app.pause_done) {
+    fprintf(stdout, "[PAUSE]\r\n");
+    fflush(stdout);
+  }
+  close_log();
+  return ret >= 0;
 }
+
