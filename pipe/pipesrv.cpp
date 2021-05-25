@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #define ENABLE_LOG
 
@@ -18,6 +19,9 @@ static int saved_key = -1;
 
 struct conf_t {
   bool local_echo{false};
+  int node_num{1};
+  std::string exe;
+  int result{0};
 };
 
 /*
@@ -110,20 +114,27 @@ static int close_pipe(HFILE h) {
   return DosDisConnectNPipe(h);
 }
 
-bool dos_pipe_loop(const int node_num, const conf_t& conf) {
+static bool shutdown_pipes = false;
+
+
+void _System dos_pipe_loop(unsigned long int raw_conf) {
+  conf_t* conf = (conf_t*) raw_conf;
   char pipe_name[81];
-  sprintf(pipe_name, "%d", node_num);
+  sprintf(pipe_name, "%d", conf->node_num);
   auto h = create_pipe(pipe_name);
   if (!connect_pipe(h)) {
     log("Failed to connect to data pipe.");
-    return false;
+    conf->result = 2;
+    return;
   }
   strcat(pipe_name, "C");
   auto hc = create_pipe(pipe_name);
   if (!connect_pipe(hc)) {
     log("Failed to connect to control pipe.");
-    return false;
+    conf->result = 2;
+    return;
   }
+  bool stop = false;
   unsigned long num_written;
   do {
     if (kbhit()) {
@@ -140,7 +151,7 @@ bool dos_pipe_loop(const int node_num, const conf_t& conf) {
 	rc = DosWrite(hc, &ch, 1, &num_written);
 	// break;
       }
-      if (conf.local_echo) {
+      if (conf->local_echo) {
 	outch(ch);
       }
     }
@@ -149,7 +160,8 @@ bool dos_pipe_loop(const int node_num, const conf_t& conf) {
     ULONG num_read;
 
     // Read Data
-    if (auto rc = DosRead(h, &ch, 1, &num_read); rc == NO_ERROR && num_read > 0) {
+    if (auto rc = DosRead(h, &ch, 1, &num_read); 
+	rc == NO_ERROR && num_read > 0) {
       outch(ch);
       continue;
     } else if (rc != 232) {
@@ -169,7 +181,8 @@ bool dos_pipe_loop(const int node_num, const conf_t& conf) {
 	// Froced disconnect.
 	close_pipe(h);
 	close_pipe(hc);
-	return true;
+	conf->result = 0;
+	return;
       case 'H': {
 	// Heartbeat
       } break;
@@ -184,11 +197,41 @@ bool dos_pipe_loop(const int node_num, const conf_t& conf) {
       os_yield();
     }
 
+    auto crc = DosEnterCritSec();
+    if (shutdown_pipes) {
+      stop = true;
+    }
+    crc = DosEnterCritSec();
+
+    if (stop) {
+      log("Stopping Pipes");
+      break;
+    }
+
   } while (true);
   close_pipe(h);
   close_pipe(hc);
 
-  return true;
+}
+
+
+static void StartFOSSILPipe(conf_t* conf) {
+  log("StartFOSSILPipe");
+  TID tid = 0;
+  DosCreateThread( &tid, dos_pipe_loop, (ULONG) conf, 
+		   CREATE_READY | STACK_SPARSE, 8196 );
+  DosSleep(100);
+}
+
+static void StopFOSSILPipe() {
+  log("StopFOSSILPipe");
+  auto crc = DosEnterCritSec();
+  shutdown_pipes = true;
+  crc = DosEnterCritSec();
+}
+
+int do_exec(conf_t* conf) {
+  return 0;
 }
 
 
@@ -201,8 +244,17 @@ int main(int argc, char** argv) {
       switch (std::toupper(*(c+1))) {
 	case 'E': conf.local_echo = true; break;
       }
+    } else if (strlen(c) > 1 && conf.exe.empty()) {
+      conf.exe = c;
     }
   }
-  auto ret = dos_pipe_loop(1, conf);
-  return ret ? 0 : 1;
+  conf.node_num = 1;
+
+  StartFOSSILPipe(&conf);
+  // Do Exec.
+  do_exec(&conf);
+  log("after exec");
+  DosSleep(500);
+  StopFOSSILPipe();
+  return 0;
 }
