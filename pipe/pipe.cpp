@@ -13,6 +13,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#pragma warning(disable : 4505)
+
 
 // See http://www.delorie.com/djgpp/doc/rbinter/ix/21/5F.html
 /*

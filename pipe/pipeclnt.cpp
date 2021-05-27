@@ -12,6 +12,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#pragma warning(disable : 4505)
+
 int main(int, char**) {
   log("PIPECLNT.EXE: Opening: \\PIPE\\WWIV1");
   Pipe __far * pipe = new __far Pipe("\\PIPE\\WWIV1");

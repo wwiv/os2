@@ -13,6 +13,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#pragma warning(disable : 4505)
+
 
 Array::Array(int max_items) : max_items_(max_items), last_item_(0) {
   items_ = new char*[max_items];
