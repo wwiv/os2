@@ -16,6 +16,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#pragma warning(disable : 4505)
+
 #define LOBYTE(w) ((w) & 0xff)
 #define HIBYTE(w) (((w) >> 8) & 0xff)
 

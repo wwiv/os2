@@ -11,7 +11,7 @@ all:		$(BINDIR)\PIPECLNT.EXE $(BINDIR)\FOSSPIPE.EXE \
 		$(BINDIR)\UTILTEST.EXE
 
 clean:
-	-@DEL/N $(BINDIR)\*.*
+	-@DEL /Q $(BINDIR)\*.*
 
 .cpp{$(BINDIR)}.obj:
     $(MSVC_HOME)\BIN\CL.EXE $(CPPFLAGS) /Zi /Od /Fo$@ /c $<

@@ -12,6 +12,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#pragma warning(disable : 4505)
+#pragma warning(disable : 4127)
+
 #define ASSERT_EQ(x, y) do { \
   if ((x) != (y)) { \
     fprintf(stderr, "FAILED EQ: %s:%d: %d != %d\r\n ", __FILE__, __LINE__, x, y); \
